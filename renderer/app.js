@@ -244,6 +244,7 @@ async function init() {
   mascot = new Mascot(canvas, config.skin);
   engine = new LofiEngine(config);
   engine.onBeat((n) => mascot.beat(n));
+  mascot.setAudioSource(() => engine.audioData());
 
   applyMuted(!!config.muted);
 

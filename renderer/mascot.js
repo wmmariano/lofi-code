@@ -4,6 +4,10 @@
 
 const P = 4; // size of one virtual pixel on screen
 
+// desk-front oscilloscope span (in virtual px), shared by update + draw
+const SCOPE_X0 = 9;
+const SCOPE_X1 = 59;
+
 const C = {
   skin: '#f2c79c',
   skinShade: '#d9a878',
@@ -81,8 +85,21 @@ class Mascot {
     this.breakPhase = null;                 // null | 'stretch' | 'sip'
     this.breakT = 0;
     this.notes = [];         // floating ♪ particles
+    // audio-reactive readings (smoothed), fed by setAudioSource()
+    this._audio = null;
+    this.bass = 0;           // 0..1, drives the deck pulse
+    this.level = 0;          // 0..1, overall energy
+    this.levelEnv = 0;       // slow envelope of level, for transient detection
+    this.scopeCols = null;   // per-column smoothed heights for the desk scope
+    this.noteCooldown = 0;
     this.last = performance.now();
     requestAnimationFrame((ts) => this._frame(ts));
+  }
+
+  // a function returning the engine's audioData() (or null). when set, notes
+  // fire on transients and the decks/equalizer react to the real signal.
+  setAudioSource(fn) {
+    this._audio = fn;
   }
 
   setState(name) {
@@ -102,7 +119,9 @@ class Mascot {
   beat(n) {
     this.beatNum = n;
     this.bob = 1;
-    if (this.playing && this.state !== 'waiting' && n % 2 === 0) {
+    // with an audio source, notes fire on transients instead; this is the
+    // fallback when there's no analyser (e.g. before audio starts)
+    if (!this._audio && this.playing && this.state !== 'waiting' && n % 2 === 0) {
       this._spawnNote();
     }
   }
@@ -129,6 +148,27 @@ class Mascot {
     if (this.playing) {
       const speed = this.state === 'busy' ? 7 : this.state === 'waiting' ? 0.4 : 2.2;
       this.discAngle += dt * speed;
+    }
+
+    // audio-reactive readings: smooth toward the live signal, decay otherwise
+    const data = this.playing && this._audio ? this._audio() : null;
+    if (data) {
+      const k = Math.min(1, dt * 12);
+      this.bass += (data.bass - this.bass) * k;
+      this.level += (data.level - this.level) * k;
+      this._updateScope(data.wave, dt);
+      // transient = level rising clearly above its slow envelope -> spawn a note
+      this.levelEnv += (data.level - this.levelEnv) * Math.min(1, dt * 3);
+      this.noteCooldown -= dt;
+      if (this.state !== 'waiting' && data.level > this.levelEnv + 0.06 && this.noteCooldown <= 0) {
+        this._spawnNote();
+        this.noteCooldown = 0.11;
+      }
+    } else {
+      const d = Math.min(1, dt * 4);
+      this.bass -= this.bass * d;
+      this.level -= this.level * d;
+      this._updateScope(null, dt);
     }
 
     // coffee break: only during zen, stretch+yawn then a sip
@@ -217,7 +257,9 @@ class Mascot {
     this._drawDesk();
     this._drawCharacter(bobY, sway);
     this._drawArms(bobY);
-    this._drawDeskFront();
+    this._drawDeskFront();   // front panel
+    this._drawScope();       // oscilloscope on the panel
+    this._drawDeskLogo();    // logo on top of the scope
     this._drawOverlays(bobY);
     this._drawNotes();
   }
@@ -236,6 +278,43 @@ class Mascot {
     ctx.fill();
   }
 
+  // scope columns (x 9..59). each column eases toward the waveform envelope so
+  // the motion flows instead of flickering frame-to-frame. wave=null -> decay.
+  _updateScope(wave, dt) {
+    const cols = SCOPE_X1 - SCOPE_X0;
+    if (!this.scopeCols || this.scopeCols.length !== cols) {
+      this.scopeCols = new Float32Array(cols);
+    }
+    const sc = this.scopeCols;
+    const k = Math.min(1, dt * 9); // easing speed: higher = snappier, lower = smoother
+    for (let i = 0; i < cols; i++) {
+      let target = 0;
+      if (wave && wave.length) {
+        const v = wave[Math.floor((i / cols) * wave.length)] || 0;
+        target = Math.min(1, Math.abs(v) * 2.2); // gain up the quiet lofi signal
+      }
+      sc[i] += (target - sc[i]) * k;
+    }
+  }
+
+  // bottom-anchored waveform on the desk front, behind the logo. drawn at
+  // screen-pixel vertical resolution (not the chunky P grid) so it's smooth.
+  _drawScope() {
+    const sc = this.scopeCols;
+    if (!sc) return;
+    const ctx = this.ctx;
+    const baseY = 56 * P;  // sits on the bottom lip of the desk front
+    const ampPx = 13;      // max height in screen pixels
+    ctx.globalAlpha = 0.6;
+    for (let i = 0; i < sc.length; i++) {
+      const hpx = Math.round(sc[i] * ampPx);
+      if (hpx <= 0) continue;
+      ctx.fillStyle = (i & 1) ? this.c.fader : this.c.accent;
+      ctx.fillRect((SCOPE_X0 + i) * P, baseY - hpx, P, hpx);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   _drawDesk() {
     // table top (turntables + mixer sit on it, drawn before the character's arms)
     this.px(6, 40, this.c.deskTop, 56, 4);
@@ -251,8 +330,10 @@ class Mascot {
   }
 
   _drawTurntable(cx, cy) {
-    this.circle(cx, cy, 7, this.c.disc);
-    this.ring(cx, cy, 5, this.c.discGroove);
+    // discs thump on the real bass: +1px on a strong low end
+    const pulse = this.bass > 0.5 ? 1 : 0;
+    this.circle(cx, cy, 7 + pulse, this.c.disc);
+    this.ring(cx, cy, 5 + pulse, this.c.discGroove);
     this.circle(cx, cy, 2, this.c.discLabel);
     // rotating marker on the rim
     const jitter = this.state === 'busy' ? Math.sin(this.t * 25) * 0.8 : 0;
@@ -456,7 +537,10 @@ class Mascot {
     // front panel drawn after arms so hands appear "on" the desk
     this.px(6, 44, this.c.deskFront, 56, 12);
     this.px(6, 44, this.c.deskTop, 56, 1);
-    // little logo on the front
+  }
+
+  // the little "LP" mark, drawn last so it sits on top of the equalizer bars
+  _drawDeskLogo() {
     this.px(31, 48, this.c.accent, 1, 4);
     this.px(32, 51, this.c.accent, 2, 1);
     this.px(35, 48, this.c.fader, 1, 4);

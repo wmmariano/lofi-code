@@ -200,6 +200,15 @@ class LofiEngine {
     this.compressor = new Tone.Compressor(-18, 3).connect(this.masterGain);
     this.masterFilter = new Tone.Filter(this.params.filter, 'lowpass').connect(this.compressor);
 
+    // visual tap: post-mix, pre-volume so the mascot keeps reacting even when
+    // muted or quiet. read each frame by the renderer via audioData().
+    // fft -> bass (deck pulse) + level (transient notes); waveform -> scope.
+    this.analyser = new Tone.Analyser('fft', 64);
+    this.analyser.smoothing = 0.6;
+    this.compressor.connect(this.analyser);
+    this.scope = new Tone.Analyser('waveform', 128);
+    this.compressor.connect(this.scope);
+
     this.reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).connect(this.masterFilter);
 
     // tape wobble on the keys
@@ -513,6 +522,29 @@ class LofiEngine {
     this.flourishBass.triggerAttackRelease(this.errorNote, '2n', now, 0.7);
     this.masterFilter.frequency.rampTo(320, 0.15);
     this.masterFilter.frequency.rampTo(this.params.filter, 2.5, now + 0.8);
+  }
+
+  // per-frame audio snapshot for the mascot: overall level + bass energy
+  // (both normalized 0..1) and the raw time-domain wave for the scope.
+  // null until built.
+  audioData() {
+    if (!this.started || !this.analyser) return null;
+    const fft = this.analyser.getValue(); // Float32Array, dB (−Infinity = silent)
+    const n = fft.length;
+    const norm = (db) => (isFinite(db) ? Math.max(0, Math.min(1, (db + 100) / 80)) : 0);
+
+    let bass = 0;
+    const bassBins = Math.max(1, Math.floor(n * 0.12)); // lowest ~12% of bins
+    for (let i = 0; i < bassBins; i++) bass += norm(fft[i]);
+    bass /= bassBins;
+
+    let level = 0;
+    for (let i = 0; i < n; i++) level += norm(fft[i]);
+    level /= n;
+
+    // time-domain wave (−1..1) for the oscilloscope; raw, no per-frame smoothing
+    const wave = this.scope.getValue();
+    return { level, bass, wave };
   }
 
   // live snapshot for the status line; bpm reads the transport, so ramps
