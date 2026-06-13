@@ -34,7 +34,8 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
 {
   "hook_event_name": "PreToolUse",
   "tool_name": "Task",
-  "errored": false
+  "errored": false,
+  "session_id": "a1b2c3d4-..."
 }
 ```
 
@@ -44,6 +45,9 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
   `Task` ou `Agent` contam +1 subagente ativo.
 - `errored` (boolean, opcional) — só tem efeito em `PostToolUse`: `true`
   dispara o flourish de erro.
+- `session_id` (string, opcional) — agrupa a contagem de subagentes por sessão.
+  Sem ele, todos os remetentes compartilham uma única sessão `default` (o setup
+  mais simples).
 
 Campos extras são ignorados. Mande o mínimo.
 
@@ -71,6 +75,13 @@ Campos extras são ignorados. Mande o mínimo.
 
 Sem eventos novos, o app decai sozinho pro zen — você não precisa mandar
 "keepalive".
+
+## Múltiplas sessões
+
+A contagem de subagentes (modo busy) é rastreada **por `session_id`** e a pista
+mostra a soma de todas as sessões. `Stop` e `SessionEnd` limpam só os agentes da
+própria sessão, então finalizar uma sessão nunca tira uma paralela do busy.
+Remetentes sem `session_id` compartilham uma única sessão `default`.
 
 ## Receitas de integração
 

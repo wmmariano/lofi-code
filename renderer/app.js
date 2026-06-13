@@ -14,7 +14,10 @@ let engine = null;
 let mascot = null;
 let appConfig = null;
 
-let activeSubagents = 0;
+// session_id -> contagem de subagents vivos daquela sessão. O modo busy é a
+// soma de todas as sessões, então o Stop de uma não tira a outra da pista.
+const subagentsBySession = new Map();
+let activeSubagents = 0;   // soma em cache; currentBaseState/renderStatus leem isto
 let lastActivity = 0;
 let flourishUntil = 0;
 let flourishState = null;
@@ -95,17 +98,36 @@ function bump() {
   lastActivity = Date.now();
 }
 
-// single source of truth for the subagent count -> music density + crowd size
-function setSubagents(n) {
-  activeSubagents = Math.max(0, n);
-  engine.setBusyLevel(activeSubagents);
-  mascot.setBusyLevel(activeSubagents);
+// single source of truth for the subagent count -> music density + crowd size.
+// the live count is the sum across sessions, so finishing one session never
+// clears another's agents off the floor.
+function recountSubagents() {
+  let sum = 0;
+  for (const n of subagentsBySession.values()) sum += n;
+  activeSubagents = sum;
+  engine.setBusyLevel(sum);
+  mascot.setBusyLevel(sum);
+}
+
+function addSubagent(id, delta) {
+  const next = Math.max(0, (subagentsBySession.get(id) || 0) + delta);
+  if (next === 0) subagentsBySession.delete(id);
+  else subagentsBySession.set(id, next);
+  recountSubagents();
+}
+
+// a session's Stop/SessionEnd reaps only its own agents — and doubles as the
+// safety net for a SubagentStop that got dropped (curl is fire-and-forget)
+function clearSession(id) {
+  if (subagentsBySession.delete(id)) recountSubagents();
 }
 
 const SUBAGENT_TOOLS = new Set(['Task', 'Agent']);
 
 function handleClaudeEvent(evt) {
   const name = evt.hook_event_name || '';
+  // payloads without a session_id share a single 'default' bucket -> today's behavior
+  const id = evt.session_id || 'default';
   switch (name) {
     case 'SessionStart':
     case 'UserPromptSubmit':
@@ -117,7 +139,7 @@ function handleClaudeEvent(evt) {
     case 'PreToolUse':
       bump();
       if (SUBAGENT_TOOLS.has(evt.tool_name)) {
-        setSubagents(activeSubagents + 1);
+        addSubagent(id, +1);
       }
       engine.toolTick();
       refresh();
@@ -138,7 +160,7 @@ function handleClaudeEvent(evt) {
     }
 
     case 'SubagentStop':
-      setSubagents(activeSubagents - 1);
+      addSubagent(id, -1);
       bump();
       refresh();
       break;
@@ -150,14 +172,15 @@ function handleClaudeEvent(evt) {
       break;
 
     case 'Stop':
-      // turn finished cleanly -> celebrate, then wind down to zen
-      setSubagents(0);
+      // turn finished cleanly -> celebrate, then wind down to zen. only this
+      // session's agents leave the floor; busy siblings keep playing.
+      clearSession(id);
       lastActivity = 0;
       flourish('success');
       break;
 
     case 'SessionEnd':
-      setSubagents(0);
+      clearSession(id);
       lastActivity = 0;
       refresh();
       break;

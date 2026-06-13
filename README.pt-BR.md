@@ -90,10 +90,11 @@ mandam o JSON de cada evento pra lá — nenhum dado sai da sua máquina.
 
 Os hooks enviam **o mínimo possível**: nada do payload original do Claude Code
 (que inclui `cwd`, caminhos de transcript e inputs de ferramentas) sai do
-processo do hook. Seis eventos mandam um JSON fixo com só o nome do evento;
-`PreToolUse` extrai apenas o `tool_name` e `PostToolUse` apenas um booleano
-`errored` (via `jq`, que decide na origem — a resposta da ferramenta nunca é
-enviada).
+processo do hook. Cada hook usa `jq` pra encaminhar só o nome do evento e o
+`session_id` opaco (pra duas sessões paralelas não atropelarem o modo busy uma
+da outra); `PreToolUse` adiciona o `tool_name` e `PostToolUse` um booleano
+`errored` — o `jq` decide na origem, então a resposta da ferramenta nunca é
+enviada.
 
 Edite `~/.claude/settings.json` e adicione o bloco `hooks` abaixo (se o arquivo
 já tiver uma chave `hooks`, mescle as entradas dentro dela):
@@ -102,28 +103,28 @@ já tiver uma chave `hooks`, mescle as entradas dentro dela):
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SessionStart\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SessionStart\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"UserPromptSubmit\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"UserPromptSubmit\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "PreToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, tool_name}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, tool_name, session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, errored: (((.tool_response? | objects | .is_error?) // false) == true)}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, errored: (((.tool_response? | objects | .is_error?) // false) == true), session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "Notification": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"Notification\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"Notification\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"Stop\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"Stop\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "SubagentStop": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SubagentStop\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SubagentStop\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SessionEnd\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SessionEnd\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ]
   }
 }
@@ -133,14 +134,15 @@ Depois de salvar, **reinicie as sessões do Claude Code** pra os hooks valerem.
 
 Notas:
 
-- Payloads enviados, na íntegra: `{"hook_event_name":"..."}` nos seis eventos
-  fixos; `{"hook_event_name":"PreToolUse","tool_name":"..."}` no PreToolUse;
-  `{"hook_event_name":"PostToolUse","errored":true|false}` no PostToolUse.
-  Nada mais cruza a porta — e o destino é `127.0.0.1`, local.
-- `PreToolUse`/`PostToolUse` precisam de `jq` instalado (`sudo apt install jq`
-  / `brew install jq`). Sem jq, esses dois eventos podem ser omitidos: você
-  perde o blip por ferramenta, o modo busy e a detecção de erro, mas o resto
-  funciona.
+- Payloads enviados, na íntegra: `{"hook_event_name":"...","session_id":"..."}`
+  nos seis eventos básicos; o PreToolUse adiciona `"tool_name":"..."` e o
+  PostToolUse adiciona `"errored":true|false`. O `session_id` é um UUID opaco —
+  nada mais cruza a porta, e o destino é `127.0.0.1`, local.
+- Agora todos os hooks precisam de `jq` (`sudo apt install jq` /
+  `brew install jq`) pra ler o `session_id` do stdin do hook. Sem `jq`, dá pra
+  tirar o prefixo `jq -c '...' |` e usar `curl ... -d
+  '{"hook_event_name":"SessionStart"}'`: tudo continua funcionando, mas todas as
+  sessões caem num balde compartilhado (o comportamento pré-multi-sessão).
 - O `matcher: "*"` em `PreToolUse`/`PostToolUse` significa "qualquer
   ferramenta"; os demais eventos não usam matcher.
 - O `-m 1` limita o curl a 1s e o `|| true` engole falhas: se o app estiver
@@ -239,10 +241,6 @@ partir de quantos encontrar.
 - [ ] **Sistema de streak** — uma sequência de `PostToolUse` sem erro deixa a
   track mais confiante (filtro abre, hats incrementam); um `errored` quebra o
   combo com um needle-skip marcante. Tudo derivável do flag `errored`.
-- [ ] **Multi-sessão** — com dois Claude Code abertos, os eventos hoje se
-  misturam (um `Stop` de uma sessão derruba o busy da outra). Rastrear por
-  `session_id` (um UUID, continua mínimo) e o estado global vira a soma das
-  sessões. Quase obrigatório pra quem roda agentes em paralelo.
 - [ ] **Flourish de commit** — momento musical especial quando um
   `git commit` acontece. Detectável sem vazar nada: matcher de `PreToolUse`
   pra Bash + `jq` mandando só um booleano `is_commit`.

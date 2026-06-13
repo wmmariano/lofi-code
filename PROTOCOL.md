@@ -34,7 +34,8 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
 {
   "hook_event_name": "PreToolUse",
   "tool_name": "Task",
-  "errored": false
+  "errored": false,
+  "session_id": "a1b2c3d4-..."
 }
 ```
 
@@ -44,6 +45,8 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
   values `Task` or `Agent` count +1 active subagent.
 - `errored` (boolean, optional) — only has an effect on `PostToolUse`: `true`
   triggers the error flourish.
+- `session_id` (string, optional) — groups the subagent count per session. Omit
+  it and all senders share a single `default` session (the simplest setup).
 
 Extra fields are ignored. Send the minimum.
 
@@ -72,6 +75,13 @@ Extra fields are ignored. Send the minimum.
 
 With no new events, the app decays back to zen on its own — you don't need to
 send any "keepalive".
+
+## Multiple sessions
+
+The subagent count (busy mode) is tracked **per `session_id`** and the floor
+shows the sum across all sessions. `Stop` and `SessionEnd` clear only their own
+session's agents, so finishing one session never drops a parallel one out of
+busy. Senders that omit `session_id` all share a single `default` session.
 
 ## Integration recipes
 

@@ -1,28 +1,28 @@
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SessionStart\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SessionStart\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"UserPromptSubmit\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"UserPromptSubmit\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "PreToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, tool_name}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, tool_name, session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, errored: (((.tool_response? | objects | .is_error?) // false) == true)}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name, errored: (((.tool_response? | objects | .is_error?) // false) == true), session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "Notification": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"Notification\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"Notification\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"Stop\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"Stop\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "SubagentStop": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SubagentStop\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SubagentStop\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ],
     "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' -d '{\"hook_event_name\":\"SessionEnd\"}' </dev/null >/dev/null 2>&1 || true" }] }
+      { "hooks": [{ "type": "command", "command": "jq -c '{hook_event_name:\"SessionEnd\", session_id}' | curl -s -m 1 -X POST http://127.0.0.1:8765/event -H 'Content-Type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }
     ]
   }
 }
