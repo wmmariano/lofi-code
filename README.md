@@ -78,7 +78,22 @@ window position are saved automatically), and accepts musical overrides:
 - `engine`: `"samples"` (default) uses the files in `renderer/samples/` for
   the Rhodes and drums if present; `"synth"` forces pure synthesis and skips
   loading samples entirely.
+- `toolVoices`: per-tool sounds on `PreToolUse` (default `true`) — each
+  `tool_name` gets its own subtle voice so you can hear the texture of the
+  session (see the table below). `false` goes back to a single generic blip.
+  Also toggleable live in the ⚙ settings panel (no restart).
 - `port`: event server port (remember to change it in the hooks too).
+
+When `toolVoices` is on, each tool maps to its own sound:
+
+| `tool_name` | Sound |
+| --- | --- |
+| `Bash` | dry woodblock click |
+| `Edit` / `Write` / `MultiEdit` / `NotebookEdit` | Rhodes stab (in the key of the day) |
+| `Grep` / `Glob` | short hi-hat roll |
+| `Read` / `LS` | soft tick |
+| `WebFetch` / `WebSearch` | vinyl scratch |
+| anything else (incl. `Task` / `Agent`) | soft tick |
 
 Config changes require an app restart.
 
@@ -153,7 +168,7 @@ Notes:
 | --- | --- |
 | `SessionStart` | Wakes from zen → work groove |
 | `UserPromptSubmit` | Work groove (cancels pending victory/error pose) |
-| `PreToolUse` | Percussive blip; if `tool_name` is `Task` or `Agent`, counts +1 subagent → busy mode |
+| `PreToolUse` | Per-tool blip (voiced by `tool_name`, see `toolVoices`); if `tool_name` is `Task` or `Agent`, also counts +1 subagent → busy mode |
 | `PostToolUse` | Keeps the groove; if the response indicates an error, error flourish |
 | `Notification` | "Waiting for you" mode: everything muffled, mascot points at the terminal |
 | `Stop` | Victory arpeggio, hands in the air, then winds down to zen |
@@ -228,10 +243,6 @@ however many it finds.
 
 ### Smarter reactivity
 
-- [ ] **Tool-voiced instruments** — hear the texture of the session: map each
-  `tool_name` to its own sound (`Bash` a dry perc, `Edit`/`Write` a Rhodes
-  stab, `Grep`/`Glob` a hi-hat roll, `Read` a soft tick, `WebFetch` a vinyl
-  scratch). The hook already sends `tool_name` — zero new data.
 - [ ] **The set that builds** — instead of static per-state loops, develop an
   arc: the longer you stay in flow, the more layers come in (a counter-melody
   at ~5 min, a pad at ~10), then a breakdown when you go idle. Drives off the

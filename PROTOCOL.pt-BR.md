@@ -42,7 +42,8 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
 - `hook_event_name` (string, obrigatório) — qual evento aconteceu. Nomes
   desconhecidos são ignorados sem efeito colateral.
 - `tool_name` (string, opcional) — só tem efeito em `PreToolUse`: os valores
-  `Task` ou `Agent` contam +1 subagente ativo.
+  `Task` ou `Agent` contam +1 subagente ativo, e o nome também define o timbre
+  do blip (vozes por ferramenta; veja `toolVoices` no README).
 - `errored` (boolean, opcional) — só tem efeito em `PostToolUse`: `true`
   dispara o flourish de erro.
 - `session_id` (string, opcional) — agrupa a contagem de subagentes por sessão.

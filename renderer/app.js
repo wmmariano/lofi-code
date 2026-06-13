@@ -141,7 +141,7 @@ function handleClaudeEvent(evt) {
       if (SUBAGENT_TOOLS.has(evt.tool_name)) {
         addSubagent(id, +1);
       }
-      engine.toolTick();
+      engine.toolTick(evt.tool_name);
       refresh();
       break;
 
@@ -249,6 +249,7 @@ const settingsPanel = document.getElementById('settings-panel');
 const settingsHint = document.getElementById('settings-hint');
 const cfgSkin = document.getElementById('cfg-skin');
 const cfgEngine = document.getElementById('cfg-engine');
+const cfgToolVoices = document.getElementById('cfg-tool-voices');
 const cfgKey = document.getElementById('cfg-key');
 const cfgVolume = document.getElementById('cfg-volume');
 
@@ -256,6 +257,7 @@ function openSettings() {
   // reflect the current config into the controls each time it opens
   cfgSkin.value = appConfig.skin || 'purple';
   cfgEngine.value = appConfig.engine || 'samples';
+  cfgToolVoices.value = appConfig.toolVoices === false ? 'off' : 'on';
   // transpose (an integer) pins the key and overrides daily; else "daily"
   cfgKey.value = Number.isInteger(appConfig.transpose)
     ? String(((appConfig.transpose % 12) + 12) % 12)
@@ -342,6 +344,12 @@ async function init() {
     appConfig.engine = cfgEngine.value;
     window.lofi.setConfig({ engine: cfgEngine.value });
     flagRestart(); // sample/synth swap happens at audio start
+  });
+  cfgToolVoices.addEventListener('change', () => {
+    const on = cfgToolVoices.value === 'on';
+    appConfig.toolVoices = on;
+    window.lofi.setConfig({ toolVoices: on });
+    engine.setToolVoices(on); // live, no restart needed
   });
   cfgKey.addEventListener('change', () => {
     // "daily" -> date-derived key (clear any pinned transpose); a note -> pin it

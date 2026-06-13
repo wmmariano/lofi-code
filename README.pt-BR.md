@@ -79,7 +79,22 @@ janela são salvos automaticamente), e aceita overrides musicais:
 - `engine`: `"samples"` (padrão) usa os arquivos de `renderer/samples/` pro
   Rhodes e a bateria, se existirem; `"synth"` força a síntese pura e nem
   carrega os samples.
+- `toolVoices`: sons por ferramenta no `PreToolUse` (padrão `true`) — cada
+  `tool_name` ganha sua própria voz sutil, então dá pra ouvir a textura da
+  sessão (veja a tabela abaixo). `false` volta ao blip genérico único.
+  Também dá pra ligar/desligar ao vivo no painel ⚙ (sem restart).
 - `port`: porta do servidor de eventos (lembre de trocar nos hooks também).
+
+Com `toolVoices` ligado, cada ferramenta mapeia pro seu som:
+
+| `tool_name` | Som |
+| --- | --- |
+| `Bash` | click seco de woodblock |
+| `Edit` / `Write` / `MultiEdit` / `NotebookEdit` | stab de Rhodes (no tom do dia) |
+| `Grep` / `Glob` | roll curto de hi-hat |
+| `Read` / `LS` | tick suave |
+| `WebFetch` / `WebSearch` | scratch de vinil |
+| qualquer outra (incl. `Task` / `Agent`) | tick suave |
 
 Mudanças no config pedem restart do app.
 
@@ -154,7 +169,7 @@ Notas:
 | --- | --- |
 | `SessionStart` | Acorda do zen → groove de trabalho |
 | `UserPromptSubmit` | Groove de trabalho (cancela pose de vitória/erro pendente) |
-| `PreToolUse` | Blip percussivo; se `tool_name` for `Task` ou `Agent`, conta +1 subagente → modo busy |
+| `PreToolUse` | Blip por ferramenta (timbre vem do `tool_name`, veja `toolVoices`); se for `Task` ou `Agent`, também conta +1 subagente → modo busy |
 | `PostToolUse` | Mantém o groove; se a resposta indicar erro, flourish de erro |
 | `Notification` | Modo "esperando você": tudo abafado, mascote aponta pro terminal |
 | `Stop` | Arpejo de vitória, mãos pro alto, e em seguida desmonta pro zen |
@@ -229,11 +244,6 @@ partir de quantos encontrar.
 
 ### Reatividade mais esperta
 
-- [ ] **Instrumentos por ferramenta** — ouvir a textura da sessão: mapear cada
-  `tool_name` pro seu próprio som (`Bash` uma perc seca, `Edit`/`Write` um
-  stab de Rhodes, `Grep`/`Glob` um roll de hi-hat, `Read` um tick suave,
-  `WebFetch` um scratch de vinil). O hook já manda `tool_name` — zero dado
-  novo.
 - [ ] **O set que se constrói** — em vez de loops estáticos por estado, um
   arco: quanto mais tempo em flow, mais camadas entram (uma contra-melodia
   aos ~5 min, um pad aos ~10) e tudo cai num breakdown quando você fica idle.

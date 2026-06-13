@@ -42,7 +42,8 @@ curl -s -m 1 -X POST http://127.0.0.1:8765/event \
 - `hook_event_name` (string, required) — which event happened. Unknown names
   are ignored with no side effects.
 - `tool_name` (string, optional) — only has an effect on `PreToolUse`: the
-  values `Task` or `Agent` count +1 active subagent.
+  values `Task` or `Agent` count +1 active subagent, and the name also picks the
+  blip's timbre (per-tool voices; see the README's `toolVoices`).
 - `errored` (boolean, optional) — only has an effect on `PostToolUse`: `true`
   triggers the error flourish.
 - `session_id` (string, optional) — groups the subagent count per session. Omit

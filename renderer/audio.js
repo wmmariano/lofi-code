@@ -69,6 +69,20 @@ const PROGRESSIONS = {
 
 const PENTATONIC = ['A4', 'C5', 'D5', 'E5', 'G5', 'A5'];
 
+// each tool_name gets its own voice on PreToolUse, so the session has texture:
+// you can hear *what* the agent is doing, not just *that* it's doing something.
+// anything not listed falls back to the soft 'tick' (the original blip).
+const TOOL_VOICES = {
+  Bash: 'perc',
+  Edit: 'stab', Write: 'stab', MultiEdit: 'stab', NotebookEdit: 'stab',
+  Grep: 'hat', Glob: 'hat',
+  Read: 'tick', LS: 'tick',
+  WebFetch: 'scratch', WebSearch: 'scratch',
+};
+// per-voice throttle (s) so a storm of one tool can't machine-gun, while
+// different tools can still sound close together
+const VOICE_THROTTLE = { perc: 0.3, hat: 0.3, tick: 0.35, stab: 0.5, scratch: 0.5 };
+
 class LofiEngine {
   constructor(config = {}) {
     // user config (per-state) is merged over the defaults, so any field in
@@ -82,6 +96,7 @@ class LofiEngine {
       : ZEN_MOODS;
     this.volume = Math.min(Math.max(config.volume ?? 0.9, 0), 1);
     this.muted = !!config.muted;
+    this.toolVoices = config.toolVoices !== false; // per-tool sounds, on by default
 
     // key of the day: a transposition derived from the date, so every day
     // has its own color and the loops never wear out. dailyKey: false goes
@@ -112,7 +127,7 @@ class LofiEngine {
     this.started = false;
     this.barIndex = 0;
     this.busyLevel = 0;
-    this.lastTickAt = 0;
+    this.lastVoiceAt = {}; // per-voice last-played time, for throttling tool blips
     this.zenIndex = 0;
     this.idleBars = 0;
     this.beatCallbacks = [];
@@ -256,12 +271,60 @@ class LofiEngine {
     this.leadDelay.wet.value = 0.3;
     this.lead.chain(this.leadDelay, this.reverb);
 
-    // soft high "blip" for tool-call ticks, shares the lead's delay space
+    // soft high "blip" for tool-call ticks, shares the lead's delay space.
+    // also the Read/fallback tool voice.
     this.tick = new Tone.Synth({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 },
-      volume: -26,
+      volume: -20,
     }).connect(this.leadDelay);
+
+    // --- per-tool voices: dedicated one-shot instruments, ALWAYS triggered
+    // via Tone.now() and NEVER shared with the transport loops (mixing now()
+    // with the transport's lookahead on one source throws "time must be >= last
+    // scheduled time" — see the fill-snare note below). all kept subtle so the
+    // texture sits under the groove. ---
+
+    // Bash -> dry woodblock-ish click; bypasses the master lowpass (like hats)
+    this.toolPerc = new Tone.MembraneSynth({
+      pitchDecay: 0.008,
+      octaves: 2,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0 },
+      volume: -14,
+    }).connect(this.compressor);
+
+    // Edit/Write -> short Rhodes-voiced FM stab, in the key of the day; rides
+    // the same tape wobble + reverb as the chords
+    this.toolStab = new Tone.FMSynth({
+      harmonicity: 2.5,
+      modulationIndex: 4,
+      oscillator: { type: 'sine' },
+      modulation: { type: 'triangle' },
+      envelope: { attack: 0.005, decay: 0.25, sustain: 0, release: 0.3 },
+      volume: -16,
+    }).connect(this.wobble);
+
+    // Grep/Glob -> crisp hi-hat roll; its own NoiseSynth+highpass, separate
+    // from the transport-driven hatSynth
+    this.toolHat = new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.001, decay: 0.03, sustain: 0 },
+      volume: -22,
+    });
+    this.toolHatFilter = new Tone.Filter(9000, 'highpass');
+    this.toolHat.chain(this.toolHatFilter, this.compressor);
+
+    // WebFetch/WebSearch -> vinyl scratch: a pink-noise burst through a bandpass
+    // whose cutoff we sweep on each hit to mimic the turntable friction
+    this.toolScratch = new Tone.NoiseSynth({
+      noise: { type: 'pink' },
+      envelope: { attack: 0.005, decay: 0.18, sustain: 0 },
+      volume: -16,
+    });
+    this.toolScratchFilter = new Tone.Filter(800, 'bandpass');
+    this.toolScratchFilter.Q.value = 3;
+    this.toolScratch.chain(this.toolScratchFilter, this.compressor);
 
     // kick: sampled boom-bap one-shot if present, else the membrane synth
     if (samples && samples.kick) {
@@ -492,16 +555,55 @@ class LofiEngine {
     }
   }
 
-  // subtle percussive blip per tool call: you can *hear* the agents working.
-  // rate-limited so command storms don't turn into morse code
-  toolTick() {
+  // per-tool blip: you can *hear* what the agent is doing, not just that it is.
+  // each tool_name maps to its own voice (TOOL_VOICES); unknown tools and the
+  // toolVoices=false opt-out both fall back to the soft tick. throttled per
+  // voice so a storm of one tool can't turn into morse code.
+  toolTick(toolName) {
     if (!this.started || this.state === 'waiting') return;
+    const voice = this.toolVoices ? TOOL_VOICES[toolName] || 'tick' : 'tick';
     const now = Tone.now();
-    if (now - this.lastTickAt < 0.6) return;
-    this.lastTickAt = now;
-    // mid register on purpose: high blips read as notifications
+    if (now - (this.lastVoiceAt[voice] || 0) < VOICE_THROTTLE[voice]) return;
+    this.lastVoiceAt[voice] = now;
+    switch (voice) {
+      case 'perc':    this._voicePerc(now); break;
+      case 'stab':    this._voiceStab(now); break;
+      case 'hat':     this._voiceHatRoll(now); break;
+      case 'scratch': this._voiceScratch(now); break;
+      default:        this._voiceTick(now);
+    }
+  }
+
+  // mid register on purpose: high blips read as notifications
+  _voiceTick(now) {
     const note = this.tickNotes[Math.floor(Math.random() * this.tickNotes.length)];
     this.tick.triggerAttackRelease(note, '16n', now, 0.25);
+  }
+
+  _voicePerc(now) {
+    this.toolPerc.triggerAttackRelease('C3', '32n', now, 0.5);
+  }
+
+  _voiceStab(now) {
+    const note = this.pentatonic[Math.floor(Math.random() * this.pentatonic.length)];
+    this.toolStab.triggerAttackRelease(note, '16n', now, 0.3);
+  }
+
+  // three quick hits, easing off in velocity -> a short roll, not a wall
+  _voiceHatRoll(now) {
+    const s = Tone.Time('32n').toSeconds();
+    [0.45, 0.3, 0.2].forEach((vel, i) => {
+      this.toolHat.triggerAttackRelease('32n', now + i * s, vel);
+    });
+  }
+
+  _voiceScratch(now) {
+    // sweep the bandpass down then back up across the noise burst
+    this.toolScratchFilter.frequency.cancelScheduledValues(now);
+    this.toolScratchFilter.frequency.setValueAtTime(1600, now);
+    this.toolScratchFilter.frequency.linearRampToValueAtTime(500, now + 0.09);
+    this.toolScratchFilter.frequency.linearRampToValueAtTime(1400, now + 0.18);
+    this.toolScratch.triggerAttackRelease('16n', now, 0.6);
   }
 
   // quick resolving arpeggio + filter opens up: "tests passed" feeling
@@ -555,6 +657,12 @@ class LofiEngine {
       prog: this.params.prog,
       key: this.keyName,
     };
+  }
+
+  // live toggle: just gates the per-tool dispatch in toolTick(), so it takes
+  // effect immediately without rebuilding the engine
+  setToolVoices(on) {
+    this.toolVoices = on !== false;
   }
 
   setVolume(v) {
