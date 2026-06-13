@@ -1,0 +1,29 @@
+{
+  "name": "lofi-code",
+  "version": "0.1.0",
+  "description": "🎧 A floating pixel-art DJ that plays generative lofi reacting to your coding agent's session — no playlists, synthesized live.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "fetch-samples": "node scripts/fetch-samples.mjs"
+  },
+  "keywords": [
+    "lofi",
+    "generative-music",
+    "claude-code",
+    "agent",
+    "desktop-widget",
+    "electron",
+    "tonejs",
+    "pixel-art"
+  ],
+  "author": "wmmariano",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "42.4.0"
+  },
+  "dependencies": {
+    "tone": "15.1.22"
+  }
+}

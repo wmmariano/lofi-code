@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+
+# downloaded CC0 audio (pnpm fetch-samples); app falls back to synthesis without them
+renderer/samples/

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'" />
+  <title>lofi-code</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="widget">
+    <div id="toolbar">
+      <span id="status">offline</span>
+      <button id="mute" title="mute / unmute">♪</button>
+      <button id="close" title="close">×</button>
+    </div>
+    <canvas id="stage" width="272" height="256"></canvas>
+    <div id="volume"></div>
+    <div id="start-overlay">click to start the sound</div>
+  </div>
+  <script src="../node_modules/tone/build/Tone.js"></script>
+  <script src="audio.js"></script>
+  <script src="mascot.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

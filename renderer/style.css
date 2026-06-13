@@ -1,0 +1,119 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html, body {
+  background: transparent;
+  overflow: hidden;
+  font-family: monospace;
+}
+
+/* no -webkit-app-region here: drag regions swallow wheel/click events,
+   so the window is moved by hand in app.js */
+#widget {
+  position: relative;
+  width: 272px;
+  height: 288px;
+}
+
+#stage {
+  cursor: grab;
+}
+
+#stage:active {
+  cursor: grabbing;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+#widget:hover #toolbar {
+  opacity: 1;
+}
+
+#status {
+  flex: 1;
+  font-size: 10px;
+  color: #cdb4f0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+#toolbar button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(30, 24, 44, 0.85);
+  color: #cdb4f0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#toolbar button:hover {
+  background: rgba(60, 48, 88, 0.95);
+  color: #fff;
+}
+
+#toolbar button.muted {
+  color: #6b5a8a;
+  text-decoration: line-through;
+}
+
+#stage {
+  display: block;
+  image-rendering: pixelated;
+}
+
+#volume {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(30, 24, 44, 0.9);
+  color: #ffd9a0;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+#volume.visible {
+  opacity: 1;
+}
+
+#start-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 36px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(30, 24, 44, 0.9);
+  color: #ffd9a0;
+  font-size: 11px;
+  cursor: pointer;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+#start-overlay.hidden {
+  display: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
