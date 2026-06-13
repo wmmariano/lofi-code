@@ -261,6 +261,22 @@ ipcMain.on('set-muted', (_e, muted) => {
   rebuildTrayMenu();
 });
 
+// settings panel: merge a partial config and persist. only whitelisted keys,
+// so the renderer can't write arbitrary fields.
+const SETTABLE = new Set(['skin', 'engine', 'dailyKey', 'transpose', 'volume']);
+ipcMain.on('set-config', (_e, partial) => {
+  if (!partial || typeof partial !== 'object') return;
+  for (const [k, v] of Object.entries(partial)) {
+    if (SETTABLE.has(k)) config[k] = v;
+  }
+  saveConfig();
+});
+
+ipcMain.on('relaunch', () => {
+  app.relaunch();
+  app.quit();
+});
+
 // dragging is driven here: following the cursor from the main process is
 // smooth, while renderer mousemove lags behind a window moving under it
 let dragInterval = null;

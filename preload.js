@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('lofi', {
   },
   getConfig: () => ipcRenderer.invoke('get-config'),
   loadSamples: () => ipcRenderer.invoke('load-samples'),
+  setConfig: (partial) => ipcRenderer.send('set-config', partial),
+  relaunch: () => ipcRenderer.send('relaunch'),
   setVolume: (v) => ipcRenderer.send('set-volume', v),
   setMuted: (muted) => ipcRenderer.send('set-muted', muted),
   dragStart: (offX, offY) => ipcRenderer.send('drag-start', offX, offY),

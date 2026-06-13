@@ -249,10 +249,6 @@ however many it finds.
 
 ### Visuals & ambience
 
-- [ ] **Audio-reactive visuals** — feed a `Tone.Analyser` (FFT/waveform) into
-  the canvas: decks pulse with the real bass, a mini-equalizer behind the DJ,
-  floating notes triggered by transients instead of a fixed beat. Pure
-  renderer, no new data.
 - [ ] **The dancefloor** — a pixel crowd along the bottom that grows with the
   subagent count: 1 agent a few fans, 5 a packed club. Reads off the existing
   `busyLevel` for instant visual sense of parallelism.

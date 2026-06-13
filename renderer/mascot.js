@@ -116,6 +116,14 @@ class Mascot {
     this.playing = playing;
   }
 
+  // swap the palette live (settings panel); next frame picks it up
+  setSkin(skinName) {
+    const preset = SKINS[skinName] || SKINS.purple;
+    const { cat, ...colors } = preset;
+    this.cat = !!cat;
+    this.c = { ...C, ...colors };
+  }
+
   beat(n) {
     this.beatNum = n;
     this.bob = 1;

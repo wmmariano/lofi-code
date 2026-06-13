@@ -12,6 +12,7 @@ const volumeEl = document.getElementById('volume');
 
 let engine = null;
 let mascot = null;
+let appConfig = null;
 
 let activeSubagents = 0;
 let lastActivity = 0;
@@ -215,6 +216,41 @@ function makeTrayIcon() {
   return c.toDataURL('image/png');
 }
 
+// --- settings panel: gear button toggles a modal over the DJ ---
+
+const settingsPanel = document.getElementById('settings-panel');
+const settingsHint = document.getElementById('settings-hint');
+const cfgSkin = document.getElementById('cfg-skin');
+const cfgEngine = document.getElementById('cfg-engine');
+const cfgKey = document.getElementById('cfg-key');
+const cfgVolume = document.getElementById('cfg-volume');
+
+function openSettings() {
+  // reflect the current config into the controls each time it opens
+  cfgSkin.value = appConfig.skin || 'purple';
+  cfgEngine.value = appConfig.engine || 'samples';
+  // transpose (an integer) pins the key and overrides daily; else "daily"
+  cfgKey.value = Number.isInteger(appConfig.transpose)
+    ? String(((appConfig.transpose % 12) + 12) % 12)
+    : appConfig.dailyKey !== false ? 'daily' : '0';
+  cfgVolume.value = Math.round(volume * 100);
+  settingsHint.textContent = '';
+  settingsPanel.classList.remove('hidden');
+}
+
+function closeSettings() {
+  settingsPanel.classList.add('hidden');
+}
+
+function toggleSettings() {
+  settingsPanel.classList.contains('hidden') ? openSettings() : closeSettings();
+}
+
+// changes that the running engine can't pick up live need a restart
+function flagRestart() {
+  settingsHint.textContent = 'restart to apply ↓';
+}
+
 // --- audio bootstrap (autoplay may or may not be allowed) ---
 
 async function startAudio() {
@@ -240,6 +276,7 @@ window.addEventListener('error', (e) => {
 
 async function init() {
   const config = await window.lofi.getConfig();
+  appConfig = config;
   volume = config.volume ?? 0.9;
   mascot = new Mascot(canvas, config.skin);
   engine = new LofiEngine(config);
@@ -263,6 +300,34 @@ async function init() {
 
   closeBtn.addEventListener('click', () => window.lofi.quit());
   startOverlay.addEventListener('click', startAudio);
+
+  // settings panel wiring
+  document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
+  document.getElementById('settings-done').addEventListener('click', closeSettings);
+  document.getElementById('settings-restart').addEventListener('click', () => window.lofi.relaunch());
+
+  cfgSkin.addEventListener('change', () => {
+    appConfig.skin = cfgSkin.value;
+    window.lofi.setConfig({ skin: cfgSkin.value });
+    mascot.setSkin(cfgSkin.value); // live
+  });
+  cfgEngine.addEventListener('change', () => {
+    appConfig.engine = cfgEngine.value;
+    window.lofi.setConfig({ engine: cfgEngine.value });
+    flagRestart(); // sample/synth swap happens at audio start
+  });
+  cfgKey.addEventListener('change', () => {
+    // "daily" -> date-derived key (clear any pinned transpose); a note -> pin it
+    const partial = cfgKey.value === 'daily'
+      ? { dailyKey: true, transpose: null }
+      : { dailyKey: false, transpose: Number(cfgKey.value) };
+    Object.assign(appConfig, partial);
+    window.lofi.setConfig(partial);
+    flagRestart(); // key is computed in the engine constructor
+  });
+  cfgVolume.addEventListener('input', () => {
+    setVolume(cfgVolume.value / 100); // live + persisted via the existing path
+  });
 
   // fall back to idle when things go quiet
   setInterval(refresh, 5_000);

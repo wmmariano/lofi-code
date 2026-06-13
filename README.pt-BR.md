@@ -249,10 +249,6 @@ partir de quantos encontrar.
 
 ### Visual & clima
 
-- [ ] **Visual reativo ao áudio** — alimentar um `Tone.Analyser` (FFT/forma de
-  onda) no canvas: discos pulsando no grave real, um mini-equalizer atrás do
-  DJ, notas flutuantes disparadas no transiente em vez de no beat fixo. Puro
-  renderer, sem dado novo.
 - [ ] **A pista de dança** — uma platéia de fãs em pixel no rodapé que cresce
   com o nº de subagentes: 1 agente uns poucos, 5 um clube lotado. Lê o
   `busyLevel` que já existe e dá leitura visual instantânea de paralelismo.
