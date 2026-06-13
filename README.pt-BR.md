@@ -249,9 +249,6 @@ partir de quantos encontrar.
 
 ### Visual & clima
 
-- [ ] **A pista de dança** — uma platéia de fãs em pixel no rodapé que cresce
-  com o nº de subagentes: 1 agente uns poucos, 5 um clube lotado. Lê o
-  `busyLevel` que já existe e dá leitura visual instantânea de paralelismo.
 - [ ] **Ciclo dia-noite + mood por horário** — a iluminação da booth e o mood
   do zen acompanham o relógio: mais claro de manhã, indo pro `nocturne` na
   madrugada. Combina com o tom do dia que já existe.

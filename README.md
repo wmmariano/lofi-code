@@ -249,9 +249,6 @@ however many it finds.
 
 ### Visuals & ambience
 
-- [ ] **The dancefloor** — a pixel crowd along the bottom that grows with the
-  subagent count: 1 agent a few fans, 5 a packed club. Reads off the existing
-  `busyLevel` for instant visual sense of parallelism.
 - [ ] **Day/night cycle + time-of-day mood** — the booth lighting and the zen
   mood follow the clock: brighter in the morning, drifting to `nocturne` late
   at night. Pairs with the existing key of the day.

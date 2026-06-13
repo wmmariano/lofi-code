@@ -80,6 +80,8 @@ class Mascot {
     this.blinkTimer = 2;
     this.blinking = 0;
     this.stateTime = 0;
+    this.busyLevel = 0;      // active subagents -> dancefloor crowd size
+    this.crowdEase = 0;      // smoothed busyLevel so the crowd grows/shrinks
     // coffee-break cycle during long zen: stretch+yawn, then sip
     this.breakIn = 40 + Math.random() * 40; // seconds of idle until a break
     this.breakPhase = null;                 // null | 'stretch' | 'sip'
@@ -114,6 +116,11 @@ class Mascot {
 
   setPlaying(playing) {
     this.playing = playing;
+  }
+
+  // active subagent count -> size of the dancefloor crowd
+  setBusyLevel(n) {
+    this.busyLevel = Math.max(0, n);
   }
 
   // swap the palette live (settings panel); next frame picks it up
@@ -199,6 +206,9 @@ class Mascot {
       }
     }
 
+    // dancefloor crowd eases toward the subagent count
+    this.crowdEase += (this.busyLevel - this.crowdEase) * Math.min(1, dt * 4);
+
     // blinking
     this.blinkTimer -= dt;
     if (this.blinkTimer <= 0) {
@@ -268,6 +278,7 @@ class Mascot {
     this._drawDeskFront();   // front panel
     this._drawScope();       // oscilloscope on the panel
     this._drawDeskLogo();    // logo on top of the scope
+    this._drawCrowd();       // dancefloor in front, sized by subagents
     this._drawOverlays(bobY);
     this._drawNotes();
   }
@@ -583,6 +594,38 @@ class Mascot {
       this.px(x, y + 3, note.color, 2, 2);
       this.ctx.globalAlpha = 1;
     }
+  }
+
+  // pixel crowd along the bottom, in front of the desk. size tracks the
+  // subagent count: a couple of heads for one agent, a packed club for
+  // several. heads bob out of phase; alternating fans wave glow-sticks.
+  _drawCrowd() {
+    if (this.crowdEase < 0.05) return;
+    const target = Math.min(11, this.crowdEase * 2 + 1); // 1 agent ~3, 5 ~11
+    const full = Math.floor(target);
+    const frac = target - full;
+    const count = frac > 0.02 ? full + 1 : full;
+    const spacing = 6, baseY = 58;
+    const startX = 34 - ((count - 1) * spacing) / 2;
+    const dark = ['#191522', '#241d31'];
+    const glow = [this.c.accent, this.c.fader];
+    for (let i = 0; i < count; i++) {
+      // the last head fades in/out with the fractional part for a smooth grow
+      this.ctx.globalAlpha = i === count - 1 && frac > 0.02 ? frac : 1;
+      const cx = Math.round(startX + i * spacing);
+      const phase = i * 1.7;
+      const bob = this.playing && Math.sin(this.t * 7 + phase) > 0.2 ? -1 : 0;
+      const y = baseY + bob;
+      const body = dark[i % 2];
+      this.px(cx, y, body, 3, 2);          // head
+      this.px(cx - 1, y + 2, body, 5, 2);  // shoulders
+      if (i % 2 === 0) {                    // hands up, waving to the beat
+        const a = Math.round(Math.sin(this.t * 8 + phase));
+        this.px(cx - 1, y - 2 + a, glow[i % 2], 1, 2);
+        this.px(cx + 3, y - 2 - a, glow[(i + 1) % 2], 1, 2);
+      }
+    }
+    this.ctx.globalAlpha = 1;
   }
 }
 

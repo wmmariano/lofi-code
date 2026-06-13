@@ -95,6 +95,13 @@ function bump() {
   lastActivity = Date.now();
 }
 
+// single source of truth for the subagent count -> music density + crowd size
+function setSubagents(n) {
+  activeSubagents = Math.max(0, n);
+  engine.setBusyLevel(activeSubagents);
+  mascot.setBusyLevel(activeSubagents);
+}
+
 const SUBAGENT_TOOLS = new Set(['Task', 'Agent']);
 
 function handleClaudeEvent(evt) {
@@ -110,8 +117,7 @@ function handleClaudeEvent(evt) {
     case 'PreToolUse':
       bump();
       if (SUBAGENT_TOOLS.has(evt.tool_name)) {
-        activeSubagents++;
-        engine.setBusyLevel(activeSubagents);
+        setSubagents(activeSubagents + 1);
       }
       engine.toolTick();
       refresh();
@@ -132,8 +138,7 @@ function handleClaudeEvent(evt) {
     }
 
     case 'SubagentStop':
-      activeSubagents = Math.max(0, activeSubagents - 1);
-      engine.setBusyLevel(activeSubagents);
+      setSubagents(activeSubagents - 1);
       bump();
       refresh();
       break;
@@ -146,14 +151,13 @@ function handleClaudeEvent(evt) {
 
     case 'Stop':
       // turn finished cleanly -> celebrate, then wind down to zen
-      activeSubagents = 0;
-      engine.setBusyLevel(0);
+      setSubagents(0);
       lastActivity = 0;
       flourish('success');
       break;
 
     case 'SessionEnd':
-      activeSubagents = 0;
+      setSubagents(0);
       lastActivity = 0;
       refresh();
       break;
