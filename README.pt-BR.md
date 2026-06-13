@@ -1,4 +1,8 @@
-# lofi-code 🎧
+<h1 align="center">lofi-code 🎧</h1>
+
+<p align="center">
+  <img width="258" height="245" alt="print dj" src="https://github.com/user-attachments/assets/ab660631-7a64-4ef8-bca2-eefc82df4065" />
+</p>
 
 [English](README.md) · **Português (Brasil)**
 
