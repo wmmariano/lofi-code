@@ -16,6 +16,8 @@ const DEFAULT_CONFIG = {
   engine: 'samples',   // 'samples' (use renderer/samples/ if present) | 'synth'
   toolVoices: true,    // per-tool sounds on PreToolUse; false = one generic blip
   flowArc: { enabled: true, counterMin: 5, padMin: 10 }, // build-up over time in flow
+  dayNight: 'zen',     // background scene by time of day: 'off' | 'zen' | 'always'
+  dayNightHour: null,  // pin the hour (0-23) for testing / a fixed vibe; null = clock
   stateParams: {},     // deep-merged over the music defaults (see README)
   zenMoods: null,      // replaces the zen mood list entirely when set
 };
@@ -265,7 +267,7 @@ ipcMain.on('set-muted', (_e, muted) => {
 
 // settings panel: merge a partial config and persist. only whitelisted keys,
 // so the renderer can't write arbitrary fields.
-const SETTABLE = new Set(['skin', 'engine', 'dailyKey', 'transpose', 'volume', 'toolVoices', 'flowArc']);
+const SETTABLE = new Set(['skin', 'engine', 'dailyKey', 'transpose', 'volume', 'toolVoices', 'flowArc', 'dayNight']);
 ipcMain.on('set-config', (_e, partial) => {
   if (!partial || typeof partial !== 'object') return;
   for (const [k, v] of Object.entries(partial)) {

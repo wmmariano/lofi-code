@@ -62,10 +62,18 @@ const SKINS = {
 };
 
 class Mascot {
-  constructor(canvas, skinName = 'purple') {
+  constructor(canvas, skinName = 'purple', opts = {}) {
     const preset = SKINS[skinName] || SKINS.purple;
     const { cat, ...colors } = preset;
     this.cat = !!cat;
+    // day-night scene: 'off' | 'zen' | 'always'. dayNightHour pins the clock
+    // (null = real time) — handy for testing and for locking a favorite vibe.
+    this.dayNight = opts.dayNight || 'zen';
+    this.dayNightHour = typeof opts.dayNightHour === 'number' ? opts.dayNightHour : null;
+    this.sceneAlpha = 0;     // eased 0..1 master alpha for the whole scene
+    this.dust = [];          // morning dust motes drifting in the sunbeam
+    this.dustCooldown = 0;
+    this.discoT = 0;         // sweep/side phase for the late-night disco balls
     this.c = { ...C, ...colors };
     this.ctx = canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
@@ -129,6 +137,11 @@ class Mascot {
     const { cat, ...colors } = preset;
     this.cat = !!cat;
     this.c = { ...C, ...colors };
+  }
+
+  // live toggle from the settings panel: 'off' | 'zen' | 'always'
+  setDayNight(mode) {
+    this.dayNight = mode || 'zen';
   }
 
   beat(n) {
@@ -225,6 +238,32 @@ class Mascot {
     }
     this.notes = this.notes.filter((n) => n.life > 0);
 
+    // day-night scene: ease the master alpha toward the current scope, advance
+    // the disco phase, and spawn/drift dust motes while the morning beam is up
+    const sceneTarget = this.dayNight === 'off' ? 0
+      : this.dayNight === 'always' ? 1
+      : (this.state === 'idle' ? 1 : 0);
+    this.sceneAlpha += (sceneTarget - this.sceneAlpha) * Math.min(1, dt * 2);
+    this.discoT += dt;
+    if (this.sceneAlpha > 0.05) {
+      const sun = this._dayWeights(this.hourNow()).sun;
+      if (sun > 0.1) {
+        this.dustCooldown -= dt;
+        if (this.dustCooldown <= 0) {
+          this.dust.push({ x: 42 + Math.random() * 16, y: 11 + Math.random() * 16, life: 1 });
+          this.dustCooldown = 0.5;
+        }
+      }
+      for (const d of this.dust) {
+        d.x -= dt * (0.8 + d.life);   // drift down-left along the beam
+        d.y += dt * 0.5;
+        d.life -= dt * 0.2;
+      }
+      this.dust = this.dust.filter((d) => d.life > 0);
+    } else if (this.dust.length) {
+      this.dust.length = 0;
+    }
+
     this._draw();
     requestAnimationFrame((t2) => this._frame(t2));
   }
@@ -290,11 +329,142 @@ class Mascot {
     ctx.beginPath();
     ctx.roundRect(3 * P, 6 * P, 62 * P, 56 * P, 14);
     ctx.fill();
+    // day-night scene on the back wall (behind desk + character)
+    this._drawAmbience();
     // floor shadow
     ctx.fillStyle = this.c.shadow;
     ctx.beginPath();
     ctx.ellipse(34 * P, 60 * P, 26 * P, 3 * P, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // --- day-night ambience: a window + tint that follow the clock, with one
+  // signature prop per period. all multiplied by sceneAlpha (the scope gate). ---
+
+  hourNow() {
+    if (this.dayNightHour != null) return this.dayNightHour;
+    const d = new Date();
+    return d.getHours() + d.getMinutes() / 60;
+  }
+
+  _lin(x, a, b) {
+    if (a === b) return x >= a ? 1 : 0;
+    return Math.max(0, Math.min(1, (x - a) / (b - a)));
+  }
+
+  // trapezoid: 0 below a, ramps up a->b, 1 across b..c, ramps down c->d, 0 above
+  _band(h, a, b, c, d) {
+    return Math.max(0, Math.min(this._lin(h, a, b), 1 - this._lin(h, c, d)));
+  }
+
+  // per-period intensities (0..1), smooth so neighbours cross-fade at the edges
+  _dayWeights(h) {
+    const hh = h < 5 ? h + 24 : h; // night wraps past midnight
+    return {
+      sun: this._band(h, 5, 7, 10, 12),
+      afternoon: this._band(h, 11, 12, 16, 17),
+      neon: this._band(h, 17, 18, 21, 22),
+      disco: this._band(hh, 22, 23, 28, 29),
+    };
+  }
+
+  // wall/sky light colour, lerped across the day (circular over 24h)
+  _tint(h) {
+    const k = [
+      { h: 2, c: [22, 24, 52] },     // madrugada: cold indigo
+      { h: 8, c: [240, 214, 176] },  // manhã: warm cream
+      { h: 14, c: [248, 206, 140] }, // tarde: amber/gold
+      { h: 19, c: [232, 128, 86] },  // noite: sunset orange
+      { h: 26, c: [22, 24, 52] },    // wrap back to madrugada
+    ];
+    const hh = h < 2 ? h + 24 : h;
+    for (let i = 0; i < k.length - 1; i++) {
+      if (hh >= k[i].h && hh <= k[i + 1].h) {
+        const t = (hh - k[i].h) / (k[i + 1].h - k[i].h);
+        return k[i].c.map((v, j) => Math.round(v + (k[i + 1].c[j] - v) * t));
+      }
+    }
+    return k[0].c;
+  }
+
+  _drawAmbience() {
+    const A = this.sceneAlpha;
+    if (A <= 0.01) return;
+    const ctx = this.ctx;
+    const h = this.hourNow();
+    const [r, g, b] = this._tint(h);
+    const rgb = `${r},${g},${b}`;
+    const w = this._dayWeights(h);
+
+    // window on the upper-right wall + sky in the current light colour
+    const wx = 45, wy = 9, ww = 15, wh = 14;
+    this.px(wx - 1, wy - 1, '#2a2336', ww + 2, wh + 2); // frame
+    ctx.globalAlpha = 0.95 * A;
+    this.px(wx, wy, `rgb(${rgb})`, ww, wh);             // sky
+    ctx.globalAlpha = 1;
+    this.px(wx + (ww >> 1), wy, '#2a2336', 1, wh);      // mullions
+    this.px(wx, wy + (wh >> 1), '#2a2336', ww, 1);
+
+    // morning: a sunbeam from the window + dust motes drifting inside it
+    if (w.sun > 0.01) {
+      const grad = ctx.createLinearGradient(wx * P, wy * P, 12 * P, 40 * P);
+      grad.addColorStop(0, `rgba(255,238,200,${0.22 * w.sun * A})`);
+      grad.addColorStop(1, 'rgba(255,238,200,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo((wx + 2) * P, wy * P);
+      ctx.lineTo((wx + ww) * P, wy * P);
+      ctx.lineTo(20 * P, 40 * P);
+      ctx.lineTo(8 * P, 40 * P);
+      ctx.closePath();
+      ctx.fill();
+      for (const d of this.dust) {
+        ctx.globalAlpha = 0.5 * d.life * w.sun * A;
+        this.px(d.x, d.y, '#fff3d0');
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // afternoon: just the window (its amber sky carries the time of day)
+
+    // evening: city bokeh in the window, a flickering neon sign, a lamp pool
+    if (w.neon > 0.01) {
+      ctx.globalAlpha = 0.5 * w.neon * A;
+      for (const [bx, by] of [[wx + 3, wy + 3], [wx + 9, wy + 5], [wx + 5, wy + 9], [wx + 12, wy + 8]]) {
+        this.px(bx, by, '#ffd9a0');
+      }
+      const flick = 0.6 + 0.4 * Math.abs(Math.sin(this.t * 6));
+      ctx.globalAlpha = w.neon * A * flick;
+      this.px(7, 12, '#ff6ad0', 1, 4); this.px(12, 12, '#ff6ad0', 1, 4); // neon "headphone" cups
+      this.px(8, 11, '#ff6ad0', 4, 1);                                    // band
+      ctx.globalAlpha = 1;
+    }
+
+    // late night: stars + two disco balls, the active side alternating
+    if (w.disco > 0.01) {
+      ctx.globalAlpha = (0.5 + 0.3 * Math.sin(this.t * 3)) * w.disco * A;
+      for (const [sx, sy] of [[wx + 3, wy + 2], [wx + 10, wy + 4], [wx + 6, wy + 7], [wx + 13, wy + 11]]) {
+        this.px(sx, sy, '#dfe6ff');
+      }
+      ctx.globalAlpha = 1;
+      const side = Math.floor(this.discoT / 2) % 2; // swap sides every 2s
+      const balls = [{ x: 9, y: 9, on: side === 0 }, { x: 58, y: 9, on: side === 1 }];
+      for (const ball of balls) {
+        ctx.globalAlpha = w.disco * A;
+        this.circle(ball.x, ball.y, 2, ball.on ? '#cfd6ff' : '#5b6488');
+        ctx.globalAlpha = 1;
+        if (!ball.on) continue;
+        for (let i = 0; i < 6; i++) {
+          const a = this.discoT * 2 + i * 1.05;
+          const rad = 8 + ((i * 5 + this.discoT * 14) % 22);
+          const dy = ball.y + Math.abs(Math.sin(a)) * rad * 0.7;
+          if (dy > 38) continue;
+          ctx.globalAlpha = (0.5 + 0.5 * Math.sin(a * 2)) * w.disco * A;
+          this.px(ball.x + Math.cos(a) * rad, dy, i % 2 ? '#9fd0ff' : '#ff9fe0');
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   // scope columns (x 9..59). each column eases toward the waveform envelope so

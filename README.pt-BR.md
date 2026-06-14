@@ -19,6 +19,7 @@ em tempo real (Tone.js) e muda conforme o que os agentes estão fazendo.
 | Esperando sua permissão | Tudo abafado, sem bateria, suspensão | Para, olha pra você, balão de "!" |
 | Turno concluído | Arpejo resolvendo + filtro abre | Mãos pro alto 🙌 |
 | Erro em ferramenta | Filtro despenca, nota grave | Olhos arregalados, gota de suor, fader no chão |
+| Hora do dia | — | O céu da janela de fundo muda com o relógio, com props por período (feixe de sol → neon → globos de discoteca) |
 
 ## Rodando
 
@@ -91,6 +92,13 @@ janela são salvos automaticamente), e aceita overrides musicais:
   `waiting` pausa o relógio sem zerar. `"enabled": false` mantém a música fixa
   por estado. O liga/desliga e os dois limiares em minutos são editáveis ao vivo
   no painel ⚙ (sem restart).
+- `dayNight`: cena de fundo — uma janela cujo céu segue o relógio, com um prop
+  por período: feixe de sol + poeira de manhã, neon + bokeh de cidade à noite,
+  globos de discoteca + estrelas de madrugada (a tarde é só a janela).
+  `"off"` / `"zen"` (padrão — só no idle) / `"always"` (todos os estados).
+  Editável ao vivo no painel ⚙.
+- `dayNightHour`: fixa a hora `0`–`23` pra travar um período (ótimo pra fixar uma
+  vibe, ou pra prever cada período); `null` (padrão) segue o relógio.
 - `port`: porta do servidor de eventos (lembre de trocar nos hooks também).
 
 Com `toolVoices` ligado, cada ferramenta mapeia pro seu som:
@@ -261,9 +269,6 @@ partir de quantos encontrar.
 
 ### Visual & clima
 
-- [ ] **Ciclo dia-noite + mood por horário** — a iluminação da booth e o mood
-  do zen acompanham o relógio: mais claro de manhã, indo pro `nocturne` na
-  madrugada. Combina com o tom do dia que já existe.
 - [ ] **Easter eggs** — Konami code troca a skin; mensagem de commit com emoji
   dispara um som especial; um atalho de "boss mode" minimiza tudo pra só
   vinil.

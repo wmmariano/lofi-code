@@ -255,6 +255,7 @@ const cfgToolVoices = document.getElementById('cfg-tool-voices');
 const cfgBuildUp = document.getElementById('cfg-build-up');
 const cfgCounterMin = document.getElementById('cfg-counter-min');
 const cfgPadMin = document.getElementById('cfg-pad-min');
+const cfgDayNight = document.getElementById('cfg-day-night');
 const cfgKey = document.getElementById('cfg-key');
 const cfgVolume = document.getElementById('cfg-volume');
 
@@ -266,6 +267,7 @@ function openSettings() {
   cfgBuildUp.value = appConfig.flowArc?.enabled === false ? 'off' : 'on';
   cfgCounterMin.value = appConfig.flowArc?.counterMin ?? 5;
   cfgPadMin.value = appConfig.flowArc?.padMin ?? 10;
+  cfgDayNight.value = appConfig.dayNight || 'zen';
   // transpose (an integer) pins the key and overrides daily; else "daily"
   cfgKey.value = Number.isInteger(appConfig.transpose)
     ? String(((appConfig.transpose % 12) + 12) % 12)
@@ -315,7 +317,10 @@ async function init() {
   const config = await window.lofi.getConfig();
   appConfig = config;
   volume = config.volume ?? 0.9;
-  mascot = new Mascot(canvas, config.skin);
+  mascot = new Mascot(canvas, config.skin, {
+    dayNight: config.dayNight,
+    dayNightHour: config.dayNightHour,
+  });
   engine = new LofiEngine(config);
   engine.onBeat((n) => mascot.beat(n));
   mascot.setAudioSource(() => engine.audioData());
@@ -377,6 +382,11 @@ async function init() {
   };
   cfgCounterMin.addEventListener('change', pushFlowThresholds);
   cfgPadMin.addEventListener('change', pushFlowThresholds);
+  cfgDayNight.addEventListener('change', () => {
+    appConfig.dayNight = cfgDayNight.value;
+    window.lofi.setConfig({ dayNight: cfgDayNight.value });
+    mascot.setDayNight(cfgDayNight.value); // live, no restart
+  });
   cfgKey.addEventListener('change', () => {
     // "daily" -> date-derived key (clear any pinned transpose); a note -> pin it
     const partial = cfgKey.value === 'daily'

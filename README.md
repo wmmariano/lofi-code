@@ -19,6 +19,7 @@ real time (Tone.js) and changes with whatever your agents are doing.
 | Waiting for your permission | Everything muffled, no drums, suspension | Stops, looks at you, "!" speech bubble |
 | Turn completed | Resolving arpeggio + filter opens | Hands in the air 🙌 |
 | Tool error | Filter drops, low note | Wide eyes, sweat drop, fader on the floor |
+| Time of day | — | The background window's sky shifts with the clock, with period props (sunbeam → neon sign → disco balls) |
 
 ## Running
 
@@ -90,6 +91,13 @@ window position are saved automatically), and accepts musical overrides:
   `waiting` pauses the clock without resetting it. `"enabled": false` keeps the
   music flat per state. The on/off and both minute thresholds are editable live
   in the ⚙ settings panel (no restart).
+- `dayNight`: a background scene — a window whose sky follows the clock, plus a
+  signature prop per period: morning sunbeam + dust motes, evening neon sign +
+  city bokeh, late-night disco balls + stars (afternoon is just the window).
+  `"off"` / `"zen"` (default — only when idle) / `"always"` (every state).
+  Editable live in the ⚙ settings panel.
+- `dayNightHour`: pin the hour `0`–`23` to freeze a time of day (great for a
+  fixed vibe, or to preview each period); `null` (default) follows the clock.
 - `port`: event server port (remember to change it in the hooks too).
 
 When `toolVoices` is on, each tool maps to its own sound:
@@ -260,9 +268,6 @@ however many it finds.
 
 ### Visuals & ambience
 
-- [ ] **Day/night cycle + time-of-day mood** — the booth lighting and the zen
-  mood follow the clock: brighter in the morning, drifting to `nocturne` late
-  at night. Pairs with the existing key of the day.
 - [ ] **Easter eggs** — Konami code swaps the skin; a commit message with an
   emoji triggers a special hit; a "boss mode" hotkey minimizes everything to
   just vinyl.
