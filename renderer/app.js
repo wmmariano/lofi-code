@@ -40,16 +40,18 @@ function renderStatus() {
     return;
   }
   if (!engine) return;
-  const { bpm, prog, key } = engine.info();
+  const { bpm, prog, key, arcStage } = engine.info();
+  // once the build-up arc kicks in, show the stage (1 = +counter, 2 = +pad)
+  const arc = arcStage > 0 ? ` · arc ${arcStage}` : '';
   switch (currentState) {
     case 'idle':
       statusEl.textContent = `zen ${prog} · ${bpm} bpm · key ${key}`;
       break;
     case 'working':
-      statusEl.textContent = `in flow · ${bpm} bpm`;
+      statusEl.textContent = `in flow · ${bpm} bpm${arc}`;
       break;
     case 'busy':
-      statusEl.textContent = `${Math.max(activeSubagents, 1)} agent(s) on the floor · ${bpm} bpm`;
+      statusEl.textContent = `${Math.max(activeSubagents, 1)} agent(s) on the floor · ${bpm} bpm${arc}`;
       break;
     default:
       statusEl.textContent = STATUS_LABEL[currentState] || currentState;
@@ -250,6 +252,9 @@ const settingsHint = document.getElementById('settings-hint');
 const cfgSkin = document.getElementById('cfg-skin');
 const cfgEngine = document.getElementById('cfg-engine');
 const cfgToolVoices = document.getElementById('cfg-tool-voices');
+const cfgBuildUp = document.getElementById('cfg-build-up');
+const cfgCounterMin = document.getElementById('cfg-counter-min');
+const cfgPadMin = document.getElementById('cfg-pad-min');
 const cfgKey = document.getElementById('cfg-key');
 const cfgVolume = document.getElementById('cfg-volume');
 
@@ -258,6 +263,9 @@ function openSettings() {
   cfgSkin.value = appConfig.skin || 'purple';
   cfgEngine.value = appConfig.engine || 'samples';
   cfgToolVoices.value = appConfig.toolVoices === false ? 'off' : 'on';
+  cfgBuildUp.value = appConfig.flowArc?.enabled === false ? 'off' : 'on';
+  cfgCounterMin.value = appConfig.flowArc?.counterMin ?? 5;
+  cfgPadMin.value = appConfig.flowArc?.padMin ?? 10;
   // transpose (an integer) pins the key and overrides daily; else "daily"
   cfgKey.value = Number.isInteger(appConfig.transpose)
     ? String(((appConfig.transpose % 12) + 12) % 12)
@@ -351,6 +359,24 @@ async function init() {
     window.lofi.setConfig({ toolVoices: on });
     engine.setToolVoices(on); // live, no restart needed
   });
+  cfgBuildUp.addEventListener('change', () => {
+    const on = cfgBuildUp.value === 'on';
+    // keep the configured thresholds, only flip enabled
+    appConfig.flowArc = { ...(appConfig.flowArc || {}), enabled: on };
+    window.lofi.setConfig({ flowArc: appConfig.flowArc });
+    engine.setFlowArc(on); // live, no restart needed
+  });
+  // counter/pad thresholds (minutes) apply live — recompute the bar counts
+  const pushFlowThresholds = () => {
+    const counterMin = parseFloat(cfgCounterMin.value);
+    const padMin = parseFloat(cfgPadMin.value);
+    if (!(counterMin > 0) || !(padMin > 0)) return;
+    appConfig.flowArc = { ...(appConfig.flowArc || {}), counterMin, padMin };
+    window.lofi.setConfig({ flowArc: appConfig.flowArc });
+    engine.setFlowThresholds(counterMin, padMin);
+  };
+  cfgCounterMin.addEventListener('change', pushFlowThresholds);
+  cfgPadMin.addEventListener('change', pushFlowThresholds);
   cfgKey.addEventListener('change', () => {
     // "daily" -> date-derived key (clear any pinned transpose); a note -> pin it
     const partial = cfgKey.value === 'daily'

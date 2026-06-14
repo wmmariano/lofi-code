@@ -15,6 +15,7 @@ real time (Tone.js) and changes with whatever your agents are doing.
 | Idle | Chords + vinyl crackle only, closed filter | Sways slowly, blinks |
 | Agent working | Drums, bass and groove kick in | Hand on headphone, in the flow |
 | Subagents in parallel | Full hats, melody, open filter | Frantic *scratching* on both decks |
+| Long stretch in flow | Counter-melody (~5 min), then a sustained pad (~10) layer in | Keeps the groove |
 | Waiting for your permission | Everything muffled, no drums, suspension | Stops, looks at you, "!" speech bubble |
 | Turn completed | Resolving arpeggio + filter opens | Hands in the air 🙌 |
 | Tool error | Filter drops, low note | Wide eyes, sweat drop, fader on the floor |
@@ -82,6 +83,13 @@ window position are saved automatically), and accepts musical overrides:
   `tool_name` gets its own subtle voice so you can hear the texture of the
   session (see the table below). `false` goes back to a single generic blip.
   Also toggleable live in the ⚙ settings panel (no restart).
+- `flowArc`: the set builds up the longer you stay in flow —
+  `{ "enabled": true, "counterMin": 5, "padMin": 10 }`. A counter-melody enters
+  after `counterMin` minutes of continuous flow (`working`/`busy`), a sustained
+  pad after `padMin`; dropping to idle winds it back down with a soft breakdown.
+  `waiting` pauses the clock without resetting it. `"enabled": false` keeps the
+  music flat per state. The on/off and both minute thresholds are editable live
+  in the ⚙ settings panel (no restart).
 - `port`: event server port (remember to change it in the hooks too).
 
 When `toolVoices` is on, each tool maps to its own sound:
@@ -243,10 +251,6 @@ however many it finds.
 
 ### Smarter reactivity
 
-- [ ] **The set that builds** — instead of static per-state loops, develop an
-  arc: the longer you stay in flow, the more layers come in (a counter-melody
-  at ~5 min, a pad at ~10), then a breakdown when you go idle. Drives off the
-  existing `lastActivity` clock.
 - [ ] **Streak system** — a run of clean `PostToolUse` calls makes the track
   more confident (filter opens, hats build); an `errored` breaks the combo
   with a pronounced needle-skip. All derivable from the `errored` flag.

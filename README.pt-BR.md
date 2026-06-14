@@ -15,6 +15,7 @@ em tempo real (Tone.js) e muda conforme o que os agentes estão fazendo.
 | Parado | Só acordes + crepitar de vinil, filtro fechado | Balança devagar, pisca |
 | Agente trabalhando | Entra bateria, baixo e groove | Mão no headphone, no flow |
 | Subagentes em paralelo | Hats cheios, melodia, filtro aberto | *Scratch* frenético nos dois discos |
+| Tempo longo em flow | Entra contra-melodia (~5 min), depois um pad sustentado (~10) | Mantém o groove |
 | Esperando sua permissão | Tudo abafado, sem bateria, suspensão | Para, olha pra você, balão de "!" |
 | Turno concluído | Arpejo resolvendo + filtro abre | Mãos pro alto 🙌 |
 | Erro em ferramenta | Filtro despenca, nota grave | Olhos arregalados, gota de suor, fader no chão |
@@ -83,6 +84,13 @@ janela são salvos automaticamente), e aceita overrides musicais:
   `tool_name` ganha sua própria voz sutil, então dá pra ouvir a textura da
   sessão (veja a tabela abaixo). `false` volta ao blip genérico único.
   Também dá pra ligar/desligar ao vivo no painel ⚙ (sem restart).
+- `flowArc`: o set cresce quanto mais tempo você fica em flow —
+  `{ "enabled": true, "counterMin": 5, "padMin": 10 }`. Uma contra-melodia entra
+  após `counterMin` minutos de flow contínuo (`working`/`busy`), um pad
+  sustentado após `padMin`; cair pra idle desmonta tudo num breakdown suave.
+  `waiting` pausa o relógio sem zerar. `"enabled": false` mantém a música fixa
+  por estado. O liga/desliga e os dois limiares em minutos são editáveis ao vivo
+  no painel ⚙ (sem restart).
 - `port`: porta do servidor de eventos (lembre de trocar nos hooks também).
 
 Com `toolVoices` ligado, cada ferramenta mapeia pro seu som:
@@ -244,10 +252,6 @@ partir de quantos encontrar.
 
 ### Reatividade mais esperta
 
-- [ ] **O set que se constrói** — em vez de loops estáticos por estado, um
-  arco: quanto mais tempo em flow, mais camadas entram (uma contra-melodia
-  aos ~5 min, um pad aos ~10) e tudo cai num breakdown quando você fica idle.
-  Usa o relógio de `lastActivity` que já existe.
 - [ ] **Sistema de streak** — uma sequência de `PostToolUse` sem erro deixa a
   track mais confiante (filtro abre, hats incrementam); um `errored` quebra o
   combo com um needle-skip marcante. Tudo derivável do flag `errored`.

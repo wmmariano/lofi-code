@@ -98,6 +98,15 @@ class LofiEngine {
     this.muted = !!config.muted;
     this.toolVoices = config.toolVoices !== false; // per-tool sounds, on by default
 
+    // build-up arc: the longer you stay in flow (working/busy), the more layers
+    // come in — a counter-melody, then a pad — winding back down on idle.
+    // thresholds are in minutes; converted to bars below.
+    const arc = config.flowArc || {};
+    this.arcEnabled = arc.enabled !== false;
+    const barSec = 4 * 60 / STATE_PARAMS.working.bpm; // ~3.24s at 74 bpm
+    this.counterBars = Math.round((arc.counterMin ?? 5) * 60 / barSec);
+    this.padBars = Math.round((arc.padMin ?? 10) * 60 / barSec);
+
     // key of the day: a transposition derived from the date, so every day
     // has its own color and the loops never wear out. dailyKey: false goes
     // back to the original default key (C); config.transpose pins any key
@@ -130,6 +139,8 @@ class LofiEngine {
     this.lastVoiceAt = {}; // per-voice last-played time, for throttling tool blips
     this.zenIndex = 0;
     this.idleBars = 0;
+    this.flowBars = 0;   // bars spent continuously in flow (working/busy)
+    this.arcStage = 0;   // 0 = groove only, 1 = +counter-melody, 2 = +pad
     this.beatCallbacks = [];
 
     // kick off sample loading now (during the autoplay/click wait); start()
@@ -270,6 +281,29 @@ class LofiEngine {
     this.leadDelay = new Tone.PingPongDelay('8n.', 0.35);
     this.leadDelay.wet.value = 0.3;
     this.lead.chain(this.leadDelay, this.reverb);
+
+    // build-up arc layers (gated by arcStage; triggered on the transport).
+    // counter-melody: a bell/glockenspiel, distinct from the triangle lead, that
+    // sparkles an octave above and answers the melody
+    this.counter = new Tone.FMSynth({
+      harmonicity: 3.01,
+      modulationIndex: 6,
+      oscillator: { type: 'sine' },
+      modulation: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.6, sustain: 0, release: 0.4 },
+      modulationEnvelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.2 },
+      volume: -16,
+    }).connect(this.leadDelay);
+
+    // pad: a soft sustained chord bed that fills the late-flow set
+    this.pad = new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 1.5,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.8, decay: 0.5, sustain: 0.8, release: 2.5 },
+      volume: -16,
+    }).connect(this.reverb);
+    // the bell sparkles an octave above the lead, its own space in the mix
+    this.counterScale = this.pentatonic.map((n) => Tone.Frequency(n).transpose(12).toNote());
 
     // soft high "blip" for tool-call ticks, shares the lead's delay space.
     // also the Read/fallback tool voice.
@@ -423,6 +457,17 @@ class LofiEngine {
         this.idleBars = 0;
         this._nextZenMood();
       }
+      // build-up arc: the set grows the longer you stay in flow. waiting pauses
+      // the clock (no change); idle resets it (handled in setState).
+      if (this.arcEnabled && (this.state === 'working' || this.state === 'busy')) {
+        this.flowBars++;
+        this.arcStage = this.flowBars >= this.padBars ? 2
+          : this.flowBars >= this.counterBars ? 1 : 0;
+      }
+      // stage 2: a soft sustained pad bed under the chord
+      if (this.arcStage >= 2) {
+        this.pad.triggerAttackRelease(step.chord, '1m', time, 0.25);
+      }
     }, '1m').start(0);
 
     // bass: root on 1, pickup on the "and" of 3; busy adds an octave jump on 2
@@ -465,6 +510,12 @@ class LofiEngine {
         this.lead.triggerAttackRelease(note, '8n', time, 0.5);
       }
 
+      // arc stage 1: a sparse counter-melody on the offbeats, answering the lead
+      if (this.arcStage >= 1 && s % 2 === 1 && Math.random() < 0.15) {
+        const note = this.counterScale[Math.floor(Math.random() * this.counterScale.length)];
+        this.counter.triggerAttackRelease(note, '8n', time, 0.4);
+      }
+
       // vinyl pop, rarely
       if (Math.random() < 0.04) this.popSynth.triggerAttackRelease('32n', time);
     }, '16n');
@@ -488,15 +539,27 @@ class LofiEngine {
       this.idleBars = 0;
       this.zenIndex = (this.zenIndex + 1) % this.zenMoods.length;
       this.params = { ...this.stateParams.idle, ...this.zenMoods[this.zenIndex] };
+      // wind the build-up arc back down: the layers stop on the next bar since
+      // they're gated by arcStage
+      this.flowBars = 0;
+      this.arcStage = 0;
     } else {
       this.params = this.stateParams[name];
     }
     if (!this.started) return;
-    // long ramps: changes should be noticed a few seconds later, not felt
-    // as a cut
-    this.masterFilter.frequency.rampTo(this.params.filter, 2.5);
     this.vinylGain.gain.rampTo(this.params.vinyl, 3.0);
     Tone.getTransport().bpm.rampTo(this._targetBpm(), 4.0);
+    if (name === 'idle') {
+      // soft breakdown: a quick filter dip, then settle into the zen cutoff —
+      // gives the "set winding down" feel instead of a flat morph
+      const now = Tone.now();
+      this.masterFilter.frequency.cancelScheduledValues(now);
+      this.masterFilter.frequency.rampTo(300, 0.4);
+      this.masterFilter.frequency.rampTo(this.params.filter, 1.5, now + 0.4);
+    } else {
+      // long ramps: changes should be noticed a few seconds later, not a cut
+      this.masterFilter.frequency.rampTo(this.params.filter, 2.5);
+    }
     if (upgrade && this.params.snare) this._drumFill();
   }
 
@@ -656,6 +719,8 @@ class LofiEngine {
       bpm: this.started ? Math.round(Tone.getTransport().bpm.value) : this.params.bpm,
       prog: this.params.prog,
       key: this.keyName,
+      arcStage: this.arcStage,
+      flowBars: this.flowBars,
     };
   }
 
@@ -663,6 +728,24 @@ class LofiEngine {
   // effect immediately without rebuilding the engine
   setToolVoices(on) {
     this.toolVoices = on !== false;
+  }
+
+  // live toggle for the build-up arc; turning it off drops the layers at once.
+  // the thresholds (counterMin/padMin) stay config-file only — they're baked
+  // into bar counts in the constructor.
+  setFlowArc(on) {
+    this.arcEnabled = on !== false;
+    if (!this.arcEnabled) { this.flowBars = 0; this.arcStage = 0; }
+  }
+
+  // live: recompute the bar thresholds from minutes and re-evaluate the stage,
+  // so a change in the panel takes effect mid-flow without a restart
+  setFlowThresholds(counterMin, padMin) {
+    const barSec = 4 * 60 / STATE_PARAMS.working.bpm;
+    if (counterMin > 0) this.counterBars = Math.round(counterMin * 60 / barSec);
+    if (padMin > 0) this.padBars = Math.round(padMin * 60 / barSec);
+    this.arcStage = this.flowBars >= this.padBars ? 2
+      : this.flowBars >= this.counterBars ? 1 : 0;
   }
 
   setVolume(v) {

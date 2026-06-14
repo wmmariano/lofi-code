@@ -15,6 +15,7 @@ const DEFAULT_CONFIG = {
   skin: 'purple',        // purple | green | pink | cat
   engine: 'samples',   // 'samples' (use renderer/samples/ if present) | 'synth'
   toolVoices: true,    // per-tool sounds on PreToolUse; false = one generic blip
+  flowArc: { enabled: true, counterMin: 5, padMin: 10 }, // build-up over time in flow
   stateParams: {},     // deep-merged over the music defaults (see README)
   zenMoods: null,      // replaces the zen mood list entirely when set
 };
@@ -264,7 +265,7 @@ ipcMain.on('set-muted', (_e, muted) => {
 
 // settings panel: merge a partial config and persist. only whitelisted keys,
 // so the renderer can't write arbitrary fields.
-const SETTABLE = new Set(['skin', 'engine', 'dailyKey', 'transpose', 'volume', 'toolVoices']);
+const SETTABLE = new Set(['skin', 'engine', 'dailyKey', 'transpose', 'volume', 'toolVoices', 'flowArc']);
 ipcMain.on('set-config', (_e, partial) => {
   if (!partial || typeof partial !== 'object') return;
   for (const [k, v] of Object.entries(partial)) {

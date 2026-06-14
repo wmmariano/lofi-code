@@ -157,7 +157,8 @@ html, body {
 }
 
 #settings-panel select,
-#settings-panel input[type="range"] {
+#settings-panel input[type="range"],
+#settings-panel input[type="number"] {
   background: rgba(40, 32, 60, 0.9);
   color: #f5f0ff;
   border: 1px solid rgba(120, 92, 191, 0.4);
@@ -168,6 +169,18 @@ html, body {
 
 #settings-panel select {
   padding: 2px 4px;
+}
+
+/* build-up row: on/off + the two minute thresholds side by side */
+.settings-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#settings-panel input[type="number"] {
+  width: 42px;
+  padding: 2px 3px;
 }
 
 #settings-panel input[type="checkbox"] {
